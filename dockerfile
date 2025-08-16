@@ -1,47 +1,62 @@
 # -------------------
-# 1. Base image (Python + Node)
+# Stage 1: Build all Node apps + install PM2
 # -------------------
-FROM python:3.11-slim
-
-# Node.js install
-RUN apt-get update && apt-get install -y curl build-essential \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && npm install -g pm2
-
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# -------------------
-# 2. Python dependencies
-# -------------------
-COPY python-openai/requirements.txt /app/python-openai/requirements.txt
-RUN pip install --no-cache-dir -r /app/python-openai/requirements.txt
+# Install PM2 globally in builder
+RUN npm install -g pm2
+
+# Frontend dependencies
+COPY frontend-nextjs/package*.json ./frontend-nextjs/
+RUN cd frontend-nextjs && npm ci
+
+# Backend dependencies (production only)
+COPY backend-nodejs/package*.json ./backend-nodejs/
+RUN cd backend-nodejs && npm ci --production
+
+# Copy source code
+COPY frontend-nextjs/ ./frontend-nextjs/
+COPY backend-nodejs/ ./backend-nodejs/
+
+# Build frontend
+RUN cd frontend-nextjs && npm run build
 
 # -------------------
-# 3. Node.js + Next.js dependencies
+# Stage 2: Final minimal image (Python + Node runtime from builder)
 # -------------------
-COPY backend-nodejs/package*.json /app/backend-nodejs/
-RUN cd /app/backend-nodejs && npm install
+FROM python:3.11-slim
+WORKDIR /app
 
-COPY frontend-nextjs/package*.json /app/frontend-nextjs/
-RUN cd /app/frontend-nextjs && npm install
+# Install minimal curl for PM2 startup
+RUN apt-get update && apt-get install -y curl --no-install-recommends \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# -------------------
-# 4. Copy source code
-# -------------------
-COPY . .
+# Copy Node runtime + npm + PM2 from builder
+COPY --from=builder /usr/local/bin/node /usr/local/bin/
+COPY --from=builder /usr/local/bin/npm /usr/local/bin/
+COPY --from=builder /usr/local/bin/pm2 /usr/local/bin/
+COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
 
-# -------------------
-# 5. PM2 config (3 services)
-# -------------------
+# Copy built frontend + backend + production node_modules
+COPY --from=builder /app/frontend-nextjs/.next ./frontend-nextjs/.next
+COPY --from=builder /app/frontend-nextjs/public ./frontend-nextjs/public
+COPY --from=builder /app/frontend-nextjs/node_modules ./frontend-nextjs/node_modules
+COPY --from=builder /app/backend-nodejs ./backend-nodejs
+
+# Copy Python source + requirements
+COPY python-openai/ ./python-openai/
+COPY python-openai/requirements.txt ./python-openai/
+RUN pip install --no-cache-dir -r python-openai/requirements.txt
+
+# PM2 ecosystem
 RUN echo 'module.exports = { \
   apps: [ \
-    { name: "frontend-nextjs", script: "npm", args: "run start", cwd: "/app/frontend-nextjs" }, \
-    { name: "backend-nodejs", script: "node", args: "server.js", cwd: "/app/backend-nodejs" }, \
-    { name: "python-openai", script: "uvicorn", args: "main:app --host 0.0.0.0 --port 8000", cwd: "/app/python-openai" } \
+    { name: "frontend-nextjs", script: "npx", args: "next start", cwd: "/app/frontend-nextjs" }, \
+    { name: "backend-nodejs", script: "npm", args: "run start", cwd: "/app/backend-nodejs" }, \
+    { name: "python-openai", script: "main.py", cwd: "/app/python-openai", interpreter: "python3" } \
   ] \
 }' > ecosystem.config.js
 
 EXPOSE 3000 5000 8000
-
 CMD ["pm2-runtime", "ecosystem.config.js"]
