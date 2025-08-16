@@ -13,6 +13,9 @@ export default function Home() {
 
   const JOB_URL_REGEX = /^https:\/\/www\.zangia\.mn\/job\/.+$/;
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -78,7 +81,7 @@ export default function Home() {
       setUploading(true);
       setMessage("");
 
-      const res = await fetch("http://localhost:5000/api/upload-cvs", {
+      const res = await fetch(`${API_URL}/api/upload-cvs`, {
         method: "POST",
         body: formData,
       });
@@ -132,9 +135,9 @@ export default function Home() {
 
         {/* About Section */}
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h1 className="text-2xl font-bold mb-4 text-center">Cv Match AI</h1>
+          <h1 className="text-2xl font-bold mb-4 text-center">Cv match AI</h1>
           <p className="text-sm text-gray-700 leading-relaxed">
-            Cv Match AI нь таны оруулсан CV болон ажлын заруудыг хиймэл оюун
+            Cv match AI нь таны оруулсан CV болон ажлын заруудыг хиймэл оюун
             ухааны тусламжтайгаар хооронд нь харьцуулж, тохирох эсэхийг үнэлдэг
             систем юм.
             <br />
@@ -292,7 +295,7 @@ export default function Home() {
                 key={fileName}
                 className="bg-white shadow-md rounded-lg p-4 border border-gray-200"
               >
-               <h2 className="font-bold text-xl mb-3 text-blue-600"> <a href={"http://localhost:5000/uploads/"+fileName} target="_blank" rel="noopener noreferrer" className="hover:underline" > {fileName} </a> </h2>
+               <h2 className="font-bold text-xl mb-3 text-blue-600"> <a href={`${API_URL}/uploads/${fileName}`} target="_blank" rel="noopener noreferrer" className="hover:underline" > {fileName} </a> </h2>
                 {Object.entries(jobs).map(([jobId, info]: any) => (
                   <div
                     key={jobId}
