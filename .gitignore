@@ -1,0 +1,6 @@
+.env
+
+backend-nodejs/node_modules/
+backend-nodejs/uploads/
+python-openai/__pycache__
+*.db
