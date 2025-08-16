@@ -5,9 +5,12 @@ const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 const fetch = require('node-fetch');
+require('dotenv').config();
 
 const app = express();
 const PORT = 5000;
+
+const FASTAPI_URL = process.env.FASTAPI_URL;
 
 app.use(cors());
 app.use(express.json());
@@ -53,7 +56,7 @@ app.post('/api/upload-cvs', upload.array('cvs', 10), async (req, res) => {
       formData.append('cv_files', fs.createReadStream(file.path), decodedName);
     });
 
-    const response = await fetch('http://localhost:8000/evaluate-cv', {
+    const response = await fetch(`${FASTAPI_URL}/evaluate-cv`, {
       method: 'POST',
       body: formData,
       headers: formData.getHeaders(),
@@ -72,7 +75,7 @@ app.post('/api/upload-cvs', upload.array('cvs', 10), async (req, res) => {
 
 app.get("/api/results", async (req, res) => {
   try {
-    const response = await fetch("http://localhost:8000/evaluations", {
+    const response = await fetch(`${FASTAPI_URL}/evaluations`, {
       method: "GET"
     });
 
