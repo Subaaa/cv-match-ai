@@ -26,6 +26,34 @@ def clean_json_text(raw_text: str) -> str:
     return re.sub(r"```json|```", "", raw_text).strip()
 
 
+# Strict JSON schema for model output to reduce hallucinations and formatting drift
+EVALUATION_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "score": {"type": "integer", "minimum": 1, "maximum": 10},
+        "skills_score": {"type": "integer", "minimum": 0, "maximum": 3},
+        "experience_score": {"type": "integer", "minimum": 0, "maximum": 3},
+        "education_score": {"type": "integer", "minimum": 0, "maximum": 2},
+        "extra_score": {"type": "integer", "minimum": 0, "maximum": 2},
+        "salary_score": {"type": "integer", "minimum": 0, "maximum": 1},
+        "strengths": {"type": "array", "items": {"type": "string"}},
+        "weaknesses": {"type": "array", "items": {"type": "string"}},
+        "comment": {"type": "string"}
+    },
+    "required": [
+        "score",
+        "skills_score",
+        "experience_score",
+        "education_score",
+        "extra_score",
+        "salary_score",
+        "strengths",
+        "weaknesses",
+        "comment"
+    ],
+    "additionalProperties": False
+}
+
 @app.post("/evaluate-cv")
 async def evaluate_cv(
     job_codes: str = Form(...),        
@@ -59,52 +87,50 @@ async def evaluate_cv(
                 continue  # Skip OpenAI call
 
             prompt = f"""
-            Та хүний нөөцийн мэргэжилтэн гэж үз.
-            Зөвхөн монголоор хариулна уу. Мэргэжлийн үг хэллэгийг орчуулахгүй.
-            CV болон ажлын зарын тохирох байдлыг 10 онооны системээр нарийвчлалтай үнэл.
-            Эцсийн `score` нь 1–10 хооронд байх ба дараах дэд оноонуудын нийлбэрт үндэслэнэ:
+Та хүний нөөцийн мэргэжилтэн. Зөвхөн монголоор хариул.
 
-            - skills_score: тухайн ажлын шаардлагатай ур чадвартай хэр зэрэг таарч байгаа эсэх (0–3 оноо)
-            - experience_score: ажлын туршлагын оновчтой байдал, хугацаа, холбогдол (0–3 оноо)
-            - education_score: боловсролын түвшин, мэргэжлийн уялдаа (0–2 оноо)
-            - extra_score: нэмэлт давуу тал (certification, хэлний мэдлэг, шагнал, бусад) (0–2 оноо)
-            - salary_score: CV дээрх эсвэл ажил горилогчийн цалингийн хүлээлт ажлын зарын саналтай таарч байгаа эсэх (0–1 оноо). 
-                Хэрэв аль аль дээр нь тодорхой дурдаагүй бол 1 оноо гэж үз.
+Зорилго: Доорх ажлын зар (JD) ба CV-ийн тохирлыг үнэлж, бүтцит JSON буцаа.
 
-            Үнэлгээ хийхдээ:
-            - **strengths**: тухайн CV-ийн давуу талуудыг жагсаа
-            - **weaknesses**: сул талуудыг жагсаа
-            - **comment**: HR хүний өнцгөөс дүгнэлт өг
+Чанарын дүрэм:
+- Таамаг бүү хий. JD/CV-д ил тод дурдсан нотолгоон дээр л дүгнэх.
+- Мэргэжлийн нэр томьёог орчуулахгүй.
+- Оролт урт бол гол утгыг анхаарч, давхардал/чанарын бус текстийг үл тоо.
 
-            Зөвхөн дараах JSON format-д буцаа (тайлбар нэмэхгүй):
+Онооны рубрик:
+- skills_score (0–3): JD-д буй чухал ур чадварууд CV-д хэдий хэмжээнд (шалгуулж болох байдлаар) туссан эсэх.
+- experience_score (0–3): Төстэй албан тушаал, салбар, хэрэгцээт технологи/үүрэг, хугацааны уялдаа.
+- education_score (0–2): Боловсролын түвшин ба чиглэл JD-тай нийцэх эсэх.
+- extra_score (0–2): Сертификат, хэл, шагнал, нийтлэл, нийгмийн ажил зэрэг нэмэлт давуу тал.
+- salary_score (0–1): CV дээрх эсхүл нэр дэвшигчийн хүлээлт JD-ийн саналтай нийцэх эсэх. Хоёуланд нь тодорхой бус бол 1 гэж оноо.
 
-            {{
-                "score": int,                # 1–10 хооронд эцсийн дүн
-                "skills_score": int,         # 0–3
-                "experience_score": int,     # 0–3
-                "education_score": int,      # 0–2
-                "extra_score": int,          # 0–2
-                "salary_score": int,         # 0-1
-                "strengths": [string],
-                "weaknesses": [string],
-                "comment": string
-            }}
+Эцсийн оноо:
+- total = skills_score + experience_score + education_score + extra_score + salary_score (макс 11)
+- score = round(10 * total / 11), 1–10 хооронд цонхоос гарвал ойролцоо бүтэн тоонд хавч.
 
-            Job description:
-            {json.dumps(job_data, ensure_ascii=False, indent=2)}
+Гаралт зөвхөн JSON байх ёстой. Нэмэлт текст, код блок оруулахгүй. Түлхүүрүүд зөвхөн: score, skills_score, experience_score, education_score, extra_score, salary_score, strengths, weaknesses, comment
 
-            CV текст:
-            {cv_text}
-            """
+Ажлын зар (JD):
+{json.dumps(job_data, ensure_ascii=False, indent=2)}
+
+CV текст:
+{cv_text}
+"""
 
             try:
                 response = client.responses.create(
                     model="gpt-4o-mini",
                     input=prompt,
-                    temperature=0
+                    temperature=0,
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "cv_evaluation",
+                            "schema": EVALUATION_JSON_SCHEMA,
+                            "strict": True
+                        }
+                    }
                 )
-                clean_text = clean_json_text(response.output_text)
-                evaluation = json.loads(clean_text)
+                evaluation = json.loads(response.output_text)
             except Exception as e:
                 evaluation = {"error": "OpenAI evaluation failed", "details": str(e), 
                               "raw": response.output_text if 'response' in locals() else ""}
