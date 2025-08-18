@@ -13,8 +13,7 @@ export default function Home() {
 
   const JOB_URL_REGEX = /^https:\/\/www\.zangia\.mn\/job\/.+$/;
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
-  
+ 
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -81,7 +80,7 @@ export default function Home() {
       setUploading(true);
       setMessage("");
 
-      const res = await fetch(`${API_URL}/api/upload-cvs`, {
+      const res = await fetch(`/api/upload-cvs`, {
         method: "POST",
         body: formData,
       });
@@ -295,7 +294,7 @@ export default function Home() {
                 key={fileName}
                 className="bg-white shadow-md rounded-lg p-4 border border-gray-200"
               >
-               <h2 className="font-bold text-xl mb-3 text-blue-600"> <a href={`${API_URL}/uploads/${fileName}`} target="_blank" rel="noopener noreferrer" className="hover:underline" > {fileName} </a> </h2>
+               <h2 className="font-bold text-xl mb-3 text-blue-600"> <a href={`$/uploads/${fileName}`} target="_blank" rel="noopener noreferrer" className="hover:underline" > {fileName} </a> </h2>
                 {Object.entries(jobs).map(([jobId, info]: any) => (
                   <div
                     key={jobId}
