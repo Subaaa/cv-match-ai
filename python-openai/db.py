@@ -185,3 +185,14 @@ def get_cv_results_with_job_details() -> Dict[str, Dict[str, Dict]]:
                 }
             }
     return results
+
+def clear_cv_results():
+    conn = get_conn()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM cv_results")
+        conn.commit()
+        return cursor.rowcount
+    finally:
+        cursor.close()
+        conn.close()

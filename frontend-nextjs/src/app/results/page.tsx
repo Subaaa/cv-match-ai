@@ -35,23 +35,56 @@ export default function ResultsPage() {
   const [results, setResults] = useState<ResultsType | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-
+  const fetchResults = async () => {
     setLoading(true);
-    fetch(`/api/results`)
-      .then((res) => res.json())
-      .then((data) => {
-        setResults(data.data || null);
-      })
-      .finally(() => setLoading(false));
+    try {
+      const res = await fetch(`/api/results`);
+      const data = await res.json();
+      setResults(data.data || null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchResults();
   }, []);
 
+  const handleClearResults = async () => {
+    if (!confirm("Are you sure you want to clear all results?")) return;
+    setLoading(true);
+    try {
+      await fetch(`/api/results/clear`, { method: "POST" });
+      setResults(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) return <p className="text-center mt-10">Loading results...</p>;
-  if (!results) return <p className="text-center mt-10">No results found.</p>;
+  if (!results) return (
+    <div className="text-center mt-10">
+      <p>No results found.</p>
+      <button
+        onClick={handleClearResults}
+        className="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+      >
+        Clear Results
+      </button>
+    </div>
+  );
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Өмнөх түүх</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Өмнөх түүх</h1>
+        <button
+          onClick={handleClearResults}
+          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+        >
+          Clear Results
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {Object.entries(results).map(([fileName, jobs]) => (
@@ -59,7 +92,16 @@ export default function ResultsPage() {
             key={fileName}
             className="bg-white shadow-md rounded-lg p-4 border border-gray-200"
           >
-            <h2 className="font-bold text-xl mb-3 text-blue-600"> <a href={`$/uploads/${fileName}`} target="_blank" rel="noopener noreferrer" className="hover:underline" > {fileName} </a> </h2>
+            <h2 className="font-bold text-xl mb-3 text-blue-600">
+              <a
+                href={`$/uploads/${fileName}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                {fileName}
+              </a>
+            </h2>
 
             {Object.entries(jobs).map(([jobId, info]) => (
               <div

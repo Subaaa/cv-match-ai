@@ -92,6 +92,25 @@ app.get("/api/results", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch results" });
   }
 });
+app.post("/api/results/clear", async (req, res) => {
+  try {
+    const response = await fetch(`${FASTAPI_URL}/evaluations/clear`, {
+      method: "POST"
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    res.json({
+      message: 'Forwarded to FastAPI successfully!',
+      data,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to clear results" });
+  }
+});
 
 
 app.listen(PORT, () => console.log(`Backend running on http://localhost:${PORT}`));

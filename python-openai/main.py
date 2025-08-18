@@ -4,7 +4,7 @@ from openai import OpenAI
 import pdfplumber, os, json, re , uvicorn
 from dotenv import load_dotenv
 
-from db import init_db, insert_cv_result , get_cv_result , get_cv_results_with_job_details
+from db import init_db, insert_cv_result , get_cv_result , get_cv_results_with_job_details, clear_cv_results
 from crawler import fetch_job 
 
 load_dotenv()
@@ -117,6 +117,10 @@ async def evaluate_cv(
 @app.get("/evaluations")
 def get_evaluations():
     return get_cv_results_with_job_details()
+
+@app.post("/evaluations/clear")
+def get_evaluations():
+    return clear_cv_results()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))  # Render-аас ирсэн PORT-г ашиглана
